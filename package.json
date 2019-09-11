@@ -27,7 +27,8 @@
     "lint": "tslint -p . 'src/**/*.{ts,tsx}'",
     "prepublishOnly": "npm run build",
     "clean": "git clean -fdX .",
-    "precommit": "npm run lint"
+    "precommit": "npm run lint",
+    "publish": "npm publish --registry=https://registry.npmjs.org/"
   },
   "dependencies": {
     "classnames": "^2.2.6"
@@ -53,8 +54,6 @@
     "react-dom": "^16.8.6",
     "rollup": "^1.19.2",
     "rollup-plugin-clear": "^2.0.7",
-    "rollup-plugin-copy": "^3.1.0",
-    "rollup-plugin-less": "^1.1.2",
     "rollup-plugin-typescript2": "^0.22.1",
     "ts-loader": "^6.0.4",
     "tslint": "^5.18.0",
