@@ -1,7 +1,7 @@
 import { ColorProperty } from 'csstype';
 import * as React from 'react';
 
-export const enum Position {
+export enum Position {
     TOP_LEFT = 'top-left',
     TOP_CENTER = 'top-center',
     TOP_RIGHT = 'top-right',
@@ -16,7 +16,7 @@ export const enum Position {
     RIGHT_BOTTOM = 'right_bottom',
 }
 
-export const enum BoxSizing {
+export enum BoxSizing {
     CONTENT_BOX = 'content-box',
     BORDER_BOX = 'border-box',
 }
@@ -34,6 +34,7 @@ interface IBubbleProps {
     borderRadius?: number;
     backgroundColor?: ColorProperty;
     boxSizing?: BoxSizing;
+    style?: React.CSSProperties;
     children: React.ReactNode;
 }
 
@@ -84,6 +85,32 @@ const POSITION_HINT = {
 const degreeToAngle = (degree: number) => degree * Math.PI / 180;
 const TAN_45 = Math.tan(Math.PI / 4);
 
+const updateBBox = (box: [number, number, number, number], x: number, y: number, xo: number, yo: number): [[number, number, number, number], number, number] => {
+    const [left, top, width, height] = box;
+    x += xo;
+    y += yo;
+    if (x < left) {
+        box[0] = x;
+        box[2] += left - x;
+    } else if (x > width) {
+        box[2] += x - width;
+    }
+    if (y < top) {
+        box[1] = y;
+        box[3] += top - y;
+    } else if (y > height) {
+        box[3] += y - height;
+    }
+    return [box, x, y];
+};
+
+const updateBBoxes = (box: [number, number, number, number], x: number, y: number, offsets: Array<[number, number]>): [[number, number, number, number], number, number] => {
+    for (const offset of offsets) {
+        [box, x, y] = updateBBox(box, x, y, ...offset);
+    }
+    return [box, x, y];
+};
+
 const createArrow = (props: IBubbleProps, id: number, style?: React.CSSProperties) => {
     const {
         width,
@@ -100,13 +127,7 @@ const createArrow = (props: IBubbleProps, id: number, style?: React.CSSPropertie
         position = defaultProps.position,
     } = props;
     const hint = POSITION_HINT[position];
-    // let path0: string;
-    // let path1: string;
-    // const halfBorder = borderWidth / 2;
-    // const borderOffset = -halfBorder;
-    // const emp = '';
     const contentBox = boxSizing === BoxSizing.CONTENT_BOX;
-    // const computedBorderWidth = contentBox ? borderWidth : 0;
     const angle0 = degreeToAngle(arrowDegree0);
     const angle1 = degreeToAngle(arrowDegree1);
     const arrowWidth0 = arrowSize > 0 ? arrowSize / Math.tan(angle0) : 0;
@@ -117,29 +138,20 @@ const createArrow = (props: IBubbleProps, id: number, style?: React.CSSPropertie
     const realArrowWidth0 = arrowWidth0 * arrowRadio;
     const realArrowWidth1 = arrowWidth1 * arrowRadio;
     const realArrowWidth = arrowWidth * arrowRadio;
-    const realArrowOffset0 = contentBox
-        ? Math.max(Math.max(arrowOffset + borderWidth * (TAN_45 - Math.tan(angle0 / 2)), borderRadius), 0)
-        : arrowOffset;
-    const realArrowOffset1 = contentBox
-        ? Math.max(Math.max(arrowOffset + borderWidth * (TAN_45 - Math.tan(angle1 / 2)), borderRadius), 0)
-        : arrowOffset;
-    const minWH = realArrowOffset0 + realArrowWidth + realArrowOffset1;
+    const realArrowOffset = Math.max(Math.max(arrowOffset + (contentBox ? borderWidth * (TAN_45 - Math.tan(angle0 / 2)) : 0), borderRadius), 0);
+    const minWH = realArrowOffset + realArrowWidth + borderRadius;
     const svgWidth = Math.max(width + (contentBox ? 2 * borderWidth : 0), minWH);
     const svgHeight = Math.max(height + (contentBox ? 2 * borderWidth : 0), minWH);
-    const cWidth = svgWidth + (Math.abs(hint[0]) === 2 ? realArrowSize : 0);
-    const cHeight = svgHeight + (Math.abs(hint[1]) === 2 ? realArrowSize : 0);
-    const boxPosX = (hint[0] === -2 ? realArrowSize : 0) + (contentBox ? borderWidth : 0);
-    const boxPosY = (hint[1] === -2 ? realArrowSize : 0) + (contentBox ? borderWidth : 0);
-    const boxWidth = Math.max(svgWidth - (contentBox ? 2 * borderWidth : 0), 0);
-    const boxHeight = Math.max(svgHeight - (contentBox ? 2 * borderWidth : 0), 0);
-    // const boxWidth = contentBox ? (width + borderWidth) : (width - borderWidth);
-    // const boxHeight = contentBox ? (height + borderWidth) : ( height - borderWidth);
+    const boxWidth = Math.max(svgWidth - 2 * borderWidth, 0);
+    const boxHeight = Math.max(svgHeight - 2 * borderWidth, 0);
     const arDirX = [1, 0, -1, 0];
     const arDirY = [0, 1, 0, -1];
     const arHintCheck = [[1, -2], [0, 2], [1, 2], [0, -2]];
-    let path = `M${hint[0] === -2 ? realArrowSize : 0} ${
-        (hint[1] === -2 ? realArrowSize : 0) + borderRadius
-    }`;
+    let box: [number, number, number, number] = [0, 0, svgWidth, svgHeight];
+    let x: number = 0;
+    let y: number = borderRadius;
+    [box, x, y] = updateBBox(box, x, y, 0, 0);
+    let path = `M${x} ${y}`;
     for (let i = 0; i < 4; ++i) {
         const dirX = arDirX[i];
         const dirY = arDirY[i];
@@ -147,11 +159,8 @@ const createArrow = (props: IBubbleProps, id: number, style?: React.CSSPropertie
         const dirNY = arDirY[i === 0 ? 3 : (i - 1)];
         const hintCheck = arHintCheck[i];
         if (borderRadius > 0) {
-            path += `a${borderRadius},${borderRadius} 0 0,1 ${
-                (dirNX + dirX) * borderRadius
-            },${
-                (dirNY + dirY) * borderRadius
-            }`;
+            [box, x, y] = updateBBox(box, x, y, (dirNX + dirX) * borderRadius, (dirNY + dirY) * borderRadius);
+            path += `A${borderRadius},${borderRadius} 0 0,1 ${x},${y}`;
         }
         let offset;
         const svgSize = hintCheck[0] ? svgWidth : svgHeight;
@@ -160,48 +169,61 @@ const createArrow = (props: IBubbleProps, id: number, style?: React.CSSPropertie
             const pos = hint[idxDir] * (idxDir ? dirY : dirX);
             const realArrowWidthPartA = (pos < 0 ? realArrowWidth0 : pos > 0 ? realArrowWidth1 : realArrowWidth / 2);
             const realArrowWidthPartB = (pos > 0 ? realArrowWidth0 : pos < 0 ? realArrowWidth1 : realArrowWidth / 2);
-            const pathArrow = `l${
-                dirX * realArrowWidthPartA + dirNX * realArrowSize
-            } ${
-                dirY * realArrowWidthPartA + dirNY * realArrowSize
-            }l${
-                dirX * realArrowWidthPartB - dirNX * realArrowSize
-            } ${
-                dirY * realArrowWidthPartB - dirNY * realArrowSize
-            }`;
+            const axoA = dirX * realArrowWidthPartA + dirNX * realArrowSize;
+            const ayoA = dirY * realArrowWidthPartA + dirNY * realArrowSize;
+            const axoB = dirX * realArrowWidthPartB - dirNX * realArrowSize;
+            const ayoB = dirY * realArrowWidthPartB - dirNY * realArrowSize;
+            const pathArrow = `l${axoA} ${ayoA}l${axoB} ${ayoB}`;
             if (pos < 0) {
-                offset = (hint[idxDir] < 0 ? realArrowOffset0 : realArrowOffset1) - borderRadius;
+                offset = realArrowOffset - borderRadius;
+                const lOffset = svgSize - offset - realArrowWidth - 2 * borderRadius;
                 if (offset > 0) {
-                    path += `l${dirX * offset},${dirY * offset}`;
+                    [box, x, y] = updateBBox(box, x, y, dirX * offset, dirY * offset);
+                    path += `L${x},${y}`;
                 }
-                path += `${pathArrow}l${
-                    dirX * (svgSize - offset - realArrowWidth - 2 * borderRadius)
-                } ${
-                    dirY * (svgSize - offset - realArrowWidth - 2 * borderRadius)
-                }`
+                [box, x, y] = updateBBoxes(box, x, y, [
+                    [axoA, ayoA],
+                    [axoB, ayoB],
+                    [dirX * lOffset, dirY * lOffset],
+                ]);
+                path += `${pathArrow}L${x} ${y}`
             } else if (pos > 0) {
-                offset = (hint[idxDir] < 0 ? realArrowOffset0 : realArrowOffset1) - borderRadius;
-                path += `l${
-                    dirX * (svgSize - offset - realArrowWidth - 2 * borderRadius)
-                } ${
-                    dirY * (svgSize - offset - realArrowWidth - 2 * borderRadius)
-                }${pathArrow}`;
+                offset = realArrowOffset - borderRadius;
+                const lOffset = svgSize - offset - realArrowWidth - 2 * borderRadius;
+                [box, x, y] = updateBBoxes(box, x, y, [
+                    [dirX * lOffset, dirY * lOffset],
+                    [axoA, ayoA],
+                    [axoB, ayoB],
+                ]);
+                path += `l${dirX * lOffset} ${dirY * lOffset}${pathArrow}`;
                 if (offset > 0) {
-                    path += `l${dirX * offset},${dirY * offset}`;
+                    [box, x, y] = updateBBox(box, x, y, dirX * offset, dirY * offset);
+                    path += `L${x},${y}`;
                 }
             } else {
                 offset = (svgSize - realArrowWidth - 2 * borderRadius) / 2;
+                [box, x, y] = updateBBoxes(box, x, y, [
+                    [dirX * offset, dirY * offset],
+                    [axoA, ayoA],
+                    [axoB, ayoB],
+                    [dirX * offset, dirY * offset],
+                ]);
                 path += `l${dirX * offset} ${dirY * offset}${pathArrow}l${dirX * offset} ${dirY * offset}`;
             }
         } else {
-            path += `l${dirX * (svgSize - 2 * borderRadius)},${dirY * (svgSize - 2 * borderRadius)}`;
+            [box, x, y] = updateBBox(box, x, y, dirX * (svgSize - 2 * borderRadius), dirY * (svgSize - 2 * borderRadius));
+            path += `L${x},${y}`;
         }
     }
+    path += 'Z';
     const tpId = `bubble-tp-${id}`;
     const clipId = `bubble-clip-${id}`;
+    const [left, top, cWidth, cHeight] = box;
+    const boxPosX = -left + borderWidth;
+    const boxPosY = -top + borderWidth;
     return {
         node: (
-            <svg style={style} width={cWidth} height={cHeight} viewBox={`0 0 ${cWidth} ${cHeight}`} fill="none">
+            <svg style={style} width={cWidth} height={cHeight} viewBox={`${left} ${top} ${cWidth} ${cHeight}`} fill="none">
                 <defs>
                     <path id={tpId} d={path} />
                     <clipPath id={clipId}>
@@ -223,11 +245,20 @@ const createArrow = (props: IBubbleProps, id: number, style?: React.CSSPropertie
 let BUBBLE_ID = 0;
 
 export default (props: IBubbleProps): React.ReactElement => {
+    const { style } = props;
+    const {
+        border, borderColor, borderWidth,
+        padding, paddingLeft, paddingRight, paddingTop, paddingBottom,
+        paddingBlock, paddingBlockStart, paddingBlockEnd,
+        paddingInline, paddingInlineStart, paddingInlineEnd,
+        ...restStyle
+    } = style || {};
     const { children } = props;
     const [id] = React.useState(BUBBLE_ID ++);
     const {node, cWidth, cHeight, boxPosX, boxPosY, boxWidth, boxHeight} = createArrow(props, id);
     const cStyle: React.CSSProperties = {
         position: "relative",
+        ...restStyle,
         width: cWidth,
         height: cHeight,
     };
@@ -237,6 +268,20 @@ export default (props: IBubbleProps): React.ReactElement => {
         top: boxPosY,
         width: boxWidth,
         height: boxHeight,
+        margin: 0,
+        border: 'none',
+        background: 'none',
+        padding,
+        paddingTop,
+        paddingRight,
+        paddingBottom,
+        paddingLeft,
+        paddingBlock,
+        paddingBlockStart,
+        paddingBlockEnd,
+        paddingInline,
+        paddingInlineStart,
+        paddingInlineEnd,
     };
     return (
         <div style={cStyle}>

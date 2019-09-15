@@ -9,6 +9,8 @@ export const stories = storiesOf('bubble', module);
 stories.add(
      'base',
      () => {
+         const left = number('style: left', 0);
+         const top = number('style: top', 0);
          const width = number('width', 300, {
              range: true,
              min: 0,
@@ -132,6 +134,7 @@ stories.add(
                  borderRadius={borderRadius}
                  boxSizing={boxSizing}
                  backgroundColor={backGroundColor}
+                 style={{ left, top }}
              >
                  Hello world!
              </Bubble>
