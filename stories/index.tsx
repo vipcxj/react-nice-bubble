@@ -142,4 +142,32 @@ stories.add(
      },
      { info: { inline: true }},
 );
+stories.add('button under bubble', () => {
+    const btn1Style: React.CSSProperties = {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+    };
+    const btn2Style: React.CSSProperties = {
+        position: 'absolute',
+        left: 100,
+        top: 100,
+    };
+    const bStyle: React.CSSProperties = {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+    };
+    const onClick1 = () => alert('button outside is clicked!');
+    const onClick2 = () => alert('button inside is clicked!');
+    return (
+        <div>
+            <button style={btn1Style} onClick={onClick1}>button outside</button>
+            <button style={btn2Style} onClick={onClick2}>button inside</button>
+            <Bubble style={bStyle} width={300} height={300} arrowSize={64} backgroundColor="rgba(200, 30, 30, 0.5)">
+                Hello world!
+            </Bubble>
+        </div>
+    )
+})
 export default stories;

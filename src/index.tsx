@@ -257,7 +257,8 @@ export default (props: IBubbleProps): React.ReactElement => {
     const [id] = React.useState(BUBBLE_ID ++);
     const {node, cWidth, cHeight, boxPosX, boxPosY, boxWidth, boxHeight} = createArrow(props, id);
     const cStyle: React.CSSProperties = {
-        position: "relative",
+        position: 'relative',
+        pointerEvents: 'none',
         ...restStyle,
         width: cWidth,
         height: cHeight,
@@ -271,6 +272,7 @@ export default (props: IBubbleProps): React.ReactElement => {
         margin: 0,
         border: 'none',
         background: 'none',
+        pointerEvents: 'initial',
         padding,
         paddingTop,
         paddingRight,
